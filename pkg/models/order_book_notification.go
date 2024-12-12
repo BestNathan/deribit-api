@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/shopspring/decimal"
 )
 
 type OrderBookGroupNotification struct {
-	Timestamp      int64       `json:"timestamp"`
-	InstrumentName string      `json:"instrument_name"`
-	ChangeID       int64       `json:"change_id"`
-	Bids           [][]float64 `json:"bids"` // [price, amount]
-	Asks           [][]float64 `json:"asks"` // [price, amount]
+	Timestamp      int64               `json:"timestamp"`
+	InstrumentName string              `json:"instrument_name"`
+	ChangeID       int64               `json:"change_id"`
+	Bids           [][]decimal.Decimal `json:"bids"` // [price, amount]
+	Asks           [][]decimal.Decimal `json:"asks"` // [price, amount]
 }
 
 // OrderBookNotificationItem ...

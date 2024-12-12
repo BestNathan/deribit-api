@@ -12,7 +12,7 @@ import (
 
 func newClient() *DeribitWSClient {
 	cfg := &deribit.Configuration{
-		WsAddr:        deribit.TestBaseURL,
+		WsAddr:        deribit.RealBaseURL,
 		ApiKey:        "AsJTU16U",
 		SecretKey:     "mM5_K8LVxztN6TjjYpv_cJVGQBvk4jglrEpqkw1b87U",
 		AutoReconnect: true,
@@ -151,3 +151,13 @@ func TestJsonOmitempty(t *testing.T) {
 	t.Log(string(data))
 }
 
+func TestOnBook(t *testing.T) {
+	client := newClient()
+	client.On("book.BTC-PERPETUAL.none.1.100ms", func(e *models.OrderBookGroupNotification) {
+		t.Logf("bids: %s\tasks: %s", e.Bids, e.Asks)
+	})
+
+	client.Subscribe([]string{"book.BTC-PERPETUAL.none.1.100ms"})
+
+	select {}
+}
