@@ -74,6 +74,7 @@ type Behavior interface {
 	Buy(*models.BuyParams) (models.BuyResponse, error)
 	Sell(*models.SellParams) (models.SellResponse, error)
 	GetOrderMarginByIDs(*models.GetOrderMarginByIDsParams) (models.GetOrderMarginByIDsResponse, error)
+	GetOrderBook(*models.GetOrderBookParams) (models.GetOrderBookResponse, error)
 }
 
 var _ Behavior = (*DeribitWSClient)(nil)
