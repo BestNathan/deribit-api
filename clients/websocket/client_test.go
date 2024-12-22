@@ -2,10 +2,13 @@ package websocket
 
 import (
 	"encoding/json"
+	"os"
+	"testing"
+
+	"github.com/shopspring/decimal"
 	websocketmodels "github.com/xingxing/deribit-api/clients/websocket/models"
 	"github.com/xingxing/deribit-api/pkg/deribit"
 	"github.com/xingxing/deribit-api/pkg/models"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,8 +16,8 @@ import (
 func newClient() *DeribitWSClient {
 	cfg := &deribit.Configuration{
 		WsAddr:        deribit.RealBaseURL,
-		ApiKey:        "AsJTU16U",
-		SecretKey:     "mM5_K8LVxztN6TjjYpv_cJVGQBvk4jglrEpqkw1b87U",
+		ApiKey:        os.Getenv("DERIBIT_KEY"),
+		SecretKey:     os.Getenv("DERIBIT_SECRET"),
 		AutoReconnect: true,
 		DebugMode:     true,
 	}
@@ -110,8 +113,8 @@ func TestClient_BuyMarket(t *testing.T) {
 	client := newClient()
 	params := &models.BuyParams{
 		InstrumentName: "BTC-PERPETUAL",
-		Amount:         10,
-		Price:          0,
+		Amount:         decimal.NewFromInt(10),
+		Price:          decimal.NewFromInt(0),
 		Type:           "market",
 	}
 	result, err := client.Buy(params)
@@ -126,8 +129,8 @@ func TestClient_Buy(t *testing.T) {
 	client := newClient()
 	params := &models.BuyParams{
 		InstrumentName: "BTC-PERPETUAL",
-		Amount:         40,
-		Price:          6000.0,
+		Amount:         decimal.NewFromInt(40),
+		Price:          decimal.NewFromInt(6000),
 		Type:           "limit",
 	}
 	result, err := client.Buy(params)
@@ -141,7 +144,7 @@ func TestClient_Buy(t *testing.T) {
 func TestJsonOmitempty(t *testing.T) {
 	params := &models.BuyParams{
 		InstrumentName: "BTC-PERPETUAL",
-		Amount:         40,
+		Amount:         decimal.NewFromInt(40),
 		//Price:          6000.0,
 		Type:        "limit",
 		TimeInForce: "good_til_cancelled",
@@ -153,11 +156,70 @@ func TestJsonOmitempty(t *testing.T) {
 
 func TestOnBook(t *testing.T) {
 	client := newClient()
-	client.On("book.BTC-PERPETUAL.none.1.100ms", func(e *models.OrderBookGroupNotification) {
-		t.Logf("bids: %s\tasks: %s", e.Bids, e.Asks)
+
+	r, err := client.Buy(&models.BuyParams{
+		InstrumentName: "BTC-PERPETUAL",
+		Amount:         decimal.NewFromInt(10),
+		Type:           "limit",
+		Price:          decimal.NewFromFloat(95683.0),
+		Label:          "xingxing-test",
 	})
 
-	client.Subscribe([]string{"book.BTC-PERPETUAL.none.1.100ms"})
+	t.Logf("%#v %v", r, err)
 
-	select {}
+	// r, err := client.Buy(&models.BuyParams{
+	// 	InstrumentName: "BTC-PERPETUAL",
+	// 	Amount:         decimal.NewFromInt(10),
+	// 	Type:           "limit",
+	// 	Price:          decimal.NewFromFloat(95683.0),
+	// 	Label:          "xingxing",
+	// })
+
+	// t.Logf("%#v %v", r, err)
+
+	// sr, err := client.CancellByLabel(&models.CancelByLabelParams{
+	// 	Label:    "xingxing",
+	// 	Currency: "BTC",
+	// })
+
+	// t.Logf("%#v %v", sr, err)
+
+	// r, _ := client.Sell(&models.SellParams{
+	// 	InstrumentName: "BTC-PERPETUAL",
+	// 	Amount:         10,
+	// 	Type:           "market",
+	// })
+
+	// t.Logf("%#v", r)
+
+	// Only for futures, position size in base currency
+	// r, err := client.GetPositions(&models.GetPositionsParams{
+	// 	Currency: "BTC",
+	// 	Kind:     "future",
+	// })
+
+	// t.Logf("currency size %s \n %v", r[0].SizeCurrency, err)
+
+	// if err != nil {
+	// 	t.Error(err)
+	// 	return
+	// }
+
+	// t.Logf("%#v", p)
+
+	// r, _ := client.GetOrderBook(&models.GetOrderBookParams{
+	// 	InstrumentName: "BTC-PERPETUAL",
+	// 	Depth:          1,
+	// })
+
+	// t.Logf("%s", r.BestBidPrice)
+
+	// r, _ = client.GetOpenOrdersByInstrument(&models.GetOpenOrdersByInstrumentParams{
+	// 	InstrumentName: "BTC-PERPETUAL",
+	// 	Type:           "all",
+	// })
+
+	// for _, v := range r {
+	// 	t.Logf("%#v", v)
+	// }
 }

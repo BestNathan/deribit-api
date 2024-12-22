@@ -40,6 +40,11 @@ func (c *DeribitWSClient) CancelAllByInstrument(params *models.CancelAllByInstru
 	return
 }
 
+func (c *DeribitWSClient) CancellByLabel(params *models.CancelByLabelParams) (result int, err error) {
+	err = c.Call("private/cancel_by_label", params, &result)
+	return
+}
+
 func (c *DeribitWSClient) ClosePosition(params *models.ClosePositionParams) (result models.ClosePositionResponse, err error) {
 	err = c.Call("private/close_position", params, &result)
 	return

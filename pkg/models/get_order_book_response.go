@@ -22,9 +22,9 @@ type GetOrderBookResponse struct {
 	CurrentFunding  float64             `json:"current_funding"`
 	ChangeID        int                 `json:"change_id"`
 	Bids            [][]decimal.Decimal `json:"bids"`
-	BestBidPrice    float64             `json:"best_bid_price"`
-	BestBidAmount   float64             `json:"best_bid_amount"`
-	BestAskPrice    float64             `json:"best_ask_price"`
-	BestAskAmount   float64             `json:"best_ask_amount"`
+	BestBidPrice    decimal.Decimal     `json:"best_bid_price"`
+	BestBidAmount   decimal.Decimal     `json:"best_bid_amount"`
+	BestAskPrice    decimal.Decimal     `json:"best_ask_price"`
+	BestAskAmount   decimal.Decimal     `json:"best_ask_amount"`
 	Asks            [][]decimal.Decimal `json:"asks"`
 }
