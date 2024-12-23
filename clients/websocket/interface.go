@@ -1,6 +1,9 @@
 package websocket
 
-import "github.com/xingxing/deribit-api/pkg/models"
+import (
+	models2 "github.com/xingxing/deribit-api/clients/websocket/models"
+	"github.com/xingxing/deribit-api/pkg/models"
+)
 
 type Behavior interface {
 	AccountBehavior
@@ -10,6 +13,8 @@ type Behavior interface {
 
 type MarketBehavior interface {
 	GetOrderBook(*models.GetOrderBookParams) (models.GetOrderBookResponse, error)
+
+	GetMarkPriceHistory(*models.GetMarkPriceHistoryParams) (models.MarkPriceHistory, error)
 }
 
 type AccountBehavior interface {
@@ -20,6 +25,7 @@ type TradingBehavior interface {
 	Buy(*models.BuyParams) (models.BuyResponse, error)
 	Sell(*models.SellParams) (models.SellResponse, error)
 
+	GetOrderHistoryByInstrument(*models.GetOrderHistoryByInstrumentParams) ([]models2.Order, error)
 	CancellByLabel(*models.CancelByLabelParams) (int, error)
 }
 

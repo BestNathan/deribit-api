@@ -49,7 +49,7 @@ type Order struct {
 	Direction           string          `json:"direction"`
 	CreationTimestamp   int64           `json:"creation_timestamp"`
 	Commission          float64         `json:"commission"`
-	AveragePrice        float64         `json:"average_price"`
+	AveragePrice        decimal.Decimal `json:"average_price"`
 	Implv               float64         `json:"implv,omitempty"`
 	Usd                 float64         `json:"usd,omitempty"`
 }

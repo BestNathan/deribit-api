@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	websocketmodels "github.com/xingxing/deribit-api/clients/websocket/models"
@@ -15,7 +16,7 @@ import (
 
 func newClient() *DeribitWSClient {
 	cfg := &deribit.Configuration{
-		WsAddr:        deribit.RealBaseURL,
+		WsAddr:        deribit.TestBaseURL,
 		ApiKey:        os.Getenv("DERIBIT_KEY"),
 		SecretKey:     os.Getenv("DERIBIT_SECRET"),
 		AutoReconnect: true,
@@ -157,12 +158,20 @@ func TestJsonOmitempty(t *testing.T) {
 func TestOnBook(t *testing.T) {
 	client := newClient()
 
-	r, err := client.Buy(&models.BuyParams{
+	// r, err := client.Buy(&models.BuyParams{
+	// 	InstrumentName: "BTC-PERPETUAL",
+	// 	Amount:         decimal.NewFromInt(10),
+	// 	Type:           "limit",
+	// 	Price:          decimal.NewFromFloat(95683.0),
+	// 	Label:          "xingxing-test",
+	// })
+
+	// t.Logf("%#v %v", r, err)
+
+	r, err := client.GetMarkPriceHistory(&models.GetMarkPriceHistoryParams{
 		InstrumentName: "BTC-PERPETUAL",
-		Amount:         decimal.NewFromInt(10),
-		Type:           "limit",
-		Price:          decimal.NewFromFloat(95683.0),
-		Label:          "xingxing-test",
+		StartTimestamp: time.Now().Add(-10 * time.Minute).UnixMilli(),
+		EndTimestamp:   time.Now().UnixMilli(),
 	})
 
 	t.Logf("%#v %v", r, err)

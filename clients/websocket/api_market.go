@@ -93,3 +93,8 @@ func (c *DeribitWSClient) Ticker(params *models.TickerParams) (result models.Tic
 	err = c.Call("public/ticker", params, &result)
 	return
 }
+
+func (c *DeribitWSClient) GetMarkPriceHistory(params *models.GetMarkPriceHistoryParams) (resut models.MarkPriceHistory, err error) {
+	err = c.Call("public/get_mark_price_history", params, &resut)
+	return
+}
