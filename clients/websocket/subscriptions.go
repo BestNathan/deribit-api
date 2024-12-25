@@ -11,7 +11,7 @@ import (
 
 func (c *DeribitWSClient) subscriptionsProcess(event *websockecmodels.Event) {
 	if c.debugMode {
-		log.Printf("Channel: %v %v", event.Channel, string(event.Data))
+		log.Printf("Channel: %v, Data: %v", event.Channel, string(event.Data))
 	}
 	if event.Channel == "announcements" {
 		var notification models.AnnouncementsNotification
@@ -162,6 +162,6 @@ func (c *DeribitWSClient) subscriptionsProcess(event *websockecmodels.Event) {
 		}
 		c.Emit(event.Channel, &notification)
 	} else {
-		log.Printf("%v", string(event.Data))
+		c.Emit(event.Channel, string(event.Data))
 	}
 }
