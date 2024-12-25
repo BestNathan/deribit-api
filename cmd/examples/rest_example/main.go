@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/xingxing/deribit-api/clients/rest"
-	"github.com/xingxing/deribit-api/pkg/deribit"
+	"github.com/BestNathan/deribit-api/clients/rest"
+	"github.com/BestNathan/deribit-api/pkg/deribit"
 )
 
 func main() {

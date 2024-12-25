@@ -1,8 +1,8 @@
 package websocket
 
 import (
-	models2 "github.com/xingxing/deribit-api/clients/websocket/models"
-	"github.com/xingxing/deribit-api/pkg/models"
+	models2 "github.com/BestNathan/deribit-api/clients/websocket/models"
+	"github.com/BestNathan/deribit-api/pkg/models"
 )
 
 type Behavior interface {

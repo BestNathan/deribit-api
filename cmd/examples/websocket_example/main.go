@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/xingxing/deribit-api/clients/websocket"
-	"github.com/xingxing/deribit-api/pkg/deribit"
-	"github.com/xingxing/deribit-api/pkg/models"
+	"github.com/BestNathan/deribit-api/clients/websocket"
+	"github.com/BestNathan/deribit-api/pkg/deribit"
+	"github.com/BestNathan/deribit-api/pkg/models"
 	"log"
 )
 

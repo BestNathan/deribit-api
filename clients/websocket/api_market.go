@@ -1,7 +1,7 @@
 package websocket
 
 import (
-	"github.com/xingxing/deribit-api/pkg/models"
+	"github.com/BestNathan/deribit-api/pkg/models"
 )
 
 func (c *DeribitWSClient) GetBookSummaryByCurrency(params *models.GetBookSummaryByCurrencyParams) (result []models.BookSummary, err error) {

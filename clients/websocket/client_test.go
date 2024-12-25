@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	websocketmodels "github.com/xingxing/deribit-api/clients/websocket/models"
-	"github.com/xingxing/deribit-api/pkg/deribit"
-	"github.com/xingxing/deribit-api/pkg/models"
+	websocketmodels "github.com/BestNathan/deribit-api/clients/websocket/models"
+	"github.com/BestNathan/deribit-api/pkg/deribit"
+	"github.com/BestNathan/deribit-api/pkg/models"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -163,7 +163,7 @@ func TestOnBook(t *testing.T) {
 	// 	Amount:         decimal.NewFromInt(10),
 	// 	Type:           "limit",
 	// 	Price:          decimal.NewFromFloat(95683.0),
-	// 	Label:          "xingxing-test",
+	// 	Label:          "BestNathan-test",
 	// })
 
 	// t.Logf("%#v %v", r, err)
@@ -181,13 +181,13 @@ func TestOnBook(t *testing.T) {
 	// 	Amount:         decimal.NewFromInt(10),
 	// 	Type:           "limit",
 	// 	Price:          decimal.NewFromFloat(95683.0),
-	// 	Label:          "xingxing",
+	// 	Label:          "BestNathan",
 	// })
 
 	// t.Logf("%#v %v", r, err)
 
 	// sr, err := client.CancellByLabel(&models.CancelByLabelParams{
-	// 	Label:    "xingxing",
+	// 	Label:    "BestNathan",
 	// 	Currency: "BTC",
 	// })
 

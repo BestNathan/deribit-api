@@ -1,6 +1,6 @@
-module github.com/xingxing/deribit-api
+module github.com/BestNathan/deribit-api
 
-go 1.21
+go 1.22
 
 require (
 	github.com/chuckpreslar/emission v0.0.0-20170206194824-a7ddd980baf9

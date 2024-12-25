@@ -2,7 +2,7 @@ package rest
 
 import (
 	"encoding/json"
-	"github.com/xingxing/deribit-api/pkg/deribit"
+	"github.com/BestNathan/deribit-api/pkg/deribit"
 	"github.com/shopspring/decimal"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

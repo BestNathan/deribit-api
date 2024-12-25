@@ -1,8 +1,8 @@
 package websocket
 
 import (
-	websockecmodels "github.com/xingxing/deribit-api/clients/websocket/models"
-	"github.com/xingxing/deribit-api/pkg/models"
+	websockecmodels "github.com/BestNathan/deribit-api/clients/websocket/models"
+	"github.com/BestNathan/deribit-api/pkg/models"
 	"log"
 	"strings"
 

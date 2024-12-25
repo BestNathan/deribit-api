@@ -4,17 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	restmodels "github.com/xingxing/deribit-api/clients/rest/models"
-	"github.com/xingxing/deribit-api/pkg/deribit"
-	"github.com/xingxing/deribit-api/pkg/models"
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/shopspring/decimal"
+	restmodels "github.com/BestNathan/deribit-api/clients/rest/models"
+	"github.com/BestNathan/deribit-api/pkg/deribit"
+	"github.com/BestNathan/deribit-api/pkg/models"
+	"github.com/sirupsen/logrus"
+
 	"net/http"
+
+	"github.com/shopspring/decimal"
 )
 
 const (
