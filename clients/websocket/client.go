@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+	"sync/atomic"
+	"time"
+
 	websocketmodels "github.com/BestNathan/deribit-api/clients/websocket/models"
 	"github.com/BestNathan/deribit-api/pkg/deribit"
 	"github.com/BestNathan/deribit-api/pkg/models"
-	"log"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
+	"github.com/sirupsen/logrus"
 
 	"github.com/chuckpreslar/emission"
 	"github.com/coder/websocket"
@@ -29,13 +30,11 @@ type DeribitWSClient struct {
 	apiKey        string
 	secretKey     string
 	autoReconnect bool
-	debugMode     bool
 
 	conn        *websocket.Conn
 	rpcConn     *jsonrpc2.Conn
-	mu          sync.RWMutex
 	heartCancel chan struct{}
-	isConnected bool
+	isConnected atomic.Bool
 
 	auth struct {
 		token   string
@@ -46,6 +45,8 @@ type DeribitWSClient struct {
 	subscriptionsMap map[string]struct{}
 
 	emitter *emission.Emitter
+
+	logger *logrus.Logger
 }
 
 func NewDeribitWsClient(cfg *deribit.Configuration) *DeribitWSClient {
@@ -59,39 +60,35 @@ func NewDeribitWsClient(cfg *deribit.Configuration) *DeribitWSClient {
 		apiKey:           cfg.ApiKey,
 		secretKey:        cfg.SecretKey,
 		autoReconnect:    cfg.AutoReconnect,
-		debugMode:        cfg.DebugMode,
+		logger:           cfg.Logger,
 		subscriptionsMap: make(map[string]struct{}),
 		emitter:          emission.NewEmitter(),
 	}
 	err := client.start()
 	if err != nil {
-		log.Fatal(err)
+		client.logger.WithContext(ctx).Warnln("start fail", err)
+
+		panic(err)
 	}
 	return client
 }
 
 // setIsConnected sets state for isConnoected
 func (c *DeribitWSClient) setIsConnected(state bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.isConnected = state
+	c.isConnected.Store(state)
 }
 
 // IsConnected returns the WebSocket connection state
 func (c *DeribitWSClient) IsConnected() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return c.isConnected
+	return c.isConnected.Load()
 }
 
 func (c *DeribitWSClient) Subscribe(channels []string) {
 	c.subscriptions = append(c.subscriptions, channels...)
-	c.subscribe(channels)
+	c.subscribe()
 }
 
-func (c *DeribitWSClient) subscribe(channels []string) {
+func (c *DeribitWSClient) subscribe() {
 	var publicChannels []string
 	var privateChannels []string
 
@@ -139,18 +136,24 @@ func (c *DeribitWSClient) start() error {
 	for i := 0; i < deribit.MaxTryTimes; i++ {
 		conn, _, err := c.connect()
 		if err != nil {
-			log.Println(err)
 			tm := (i + 1) * 5
-			log.Printf("Sleep %vs", tm)
-			time.Sleep(time.Duration(tm) * time.Second)
+			dur := time.Duration(tm) * time.Second
+
+			c.logger.
+				WithContext(c.ctx).
+				Warnf("websocket connect fail(%d), and will retry in %s\n", i, dur)
+
+			time.Sleep(dur)
+
 			continue
 		}
+
 		c.conn = conn
 		break
 	}
 
 	if c.conn == nil {
-		return errors.New("connect fail")
+		return errors.New("websocket connect fail")
 	}
 
 	// Create a new object stream with the websocket connection
@@ -164,17 +167,17 @@ func (c *DeribitWSClient) start() error {
 	// Authenticate if credentials are provided
 	if c.apiKey != "" && c.secretKey != "" {
 		if err := c.Auth(c.apiKey, c.secretKey); err != nil {
-			log.Printf("auth error: %v", err)
+			return fmt.Errorf("auth: %w", err)
 		}
 	}
 
 	// Subscribe to channels
-	c.subscribe(c.subscriptions)
+	c.subscribe()
 
 	// Set heartbeat
 	_, err := c.SetHeartbeat(&models.SetHeartbeatParams{Interval: 30})
 	if err != nil {
-		return err
+		return fmt.Errorf("set heartbeat: %w", err)
 	}
 
 	// Start reconnection handler if enabled
@@ -220,10 +223,13 @@ func (c *DeribitWSClient) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *
 		if req.Params != nil && len(*req.Params) > 0 {
 			var event websocketmodels.Event
 			if err := json.Unmarshal(*req.Params, &event); err != nil {
-				//c.setError(err)
+				c.logger.WithContext(ctx).Warnln("websocket unmarshal event fail", err)
 				return
 			}
-			c.subscriptionsProcess(&event)
+
+			if err := c.subscriptionsProcess(&event); err != nil {
+				c.logger.WithContext(ctx).Warnln("websocket subscription process fail", err)
+			}
 		}
 	}
 }
@@ -233,8 +239,8 @@ func (c *DeribitWSClient) heartbeat() {
 	for {
 		select {
 		case <-t.C:
-			_, err := c.Test()
-			if err != nil {
+			if _, err := c.Test(); err != nil {
+				c.logger.WithContext(c.ctx).Warnln("test fail", err)
 				return
 			}
 		case <-c.heartCancel:
@@ -248,7 +254,7 @@ func (c *DeribitWSClient) reconnect() {
 	<-notify
 	c.setIsConnected(false)
 
-	log.Println("disconnect, reconnect...")
+	c.logger.WithContext(c.ctx).Debugln("reconnecting...")
 
 	close(c.heartCancel)
 
@@ -256,7 +262,11 @@ func (c *DeribitWSClient) reconnect() {
 
 	err := c.start()
 	if err != nil {
+		c.logger.WithContext(c.ctx).Warnln("reconnect fail", err)
+
 		return
+	} else {
+		c.logger.WithContext(c.ctx).Debugln("reconnect success")
 	}
 }
 

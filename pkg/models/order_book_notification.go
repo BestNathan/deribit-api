@@ -28,7 +28,6 @@ type OrderBookNotificationItem struct {
 
 func (item *OrderBookNotificationItem) UnmarshalJSON(b []byte) error {
 	// b: ["new",59786.0,10.0]
-	// log.Printf("b=%v", string(b))
 	s := strings.TrimLeft(string(b), "[")
 	s = strings.TrimRight(s, "]")
 	l := strings.Split(s, ",")
