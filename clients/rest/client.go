@@ -27,37 +27,36 @@ const (
 type DeribitRestClient struct {
 	Client      *http.Client
 	ClientID    string
-	ApiSecret   string
+	SecretKey   string
 	BaseURL     string
 	AccessToken *string
 	Logger      *logrus.Logger
 }
 
 func NewDeribitRestClient(cfg *deribit.Configuration) *DeribitRestClient {
+	hc := cfg.Client
+	if hc == nil {
+		hc = &http.Client{}
+	}
+
 	return &DeribitRestClient{
-		Client:      &http.Client{},
-		ClientID:    cfg.ApiKey,
-		ApiSecret:   cfg.SecretKey,
-		BaseURL:     cfg.RestAddr,
+		Client:      hc,
+		ClientID:    cfg.Credential.ApiKey,
+		SecretKey:   cfg.Credential.SecretKey,
+		BaseURL:     cfg.BaseUrl,
 		AccessToken: nil,
 		Logger:      cfg.Logger,
 	}
 }
 
 func (d *DeribitRestClient) GetAuthToken() (string, error) {
-	baseURL := strings.Replace(d.BaseURL, "/ws", "", 1)
-	d.Logger.Debugf("Original Base URL: %s", baseURL)
-
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	d.Logger.Debugf("URL after trim: %s", baseURL)
-
-	authURL := baseURL + "/public/auth"
+	authURL := d.BaseURL + "/public/auth"
 	d.Logger.Debugf("Final auth URL: %s", authURL)
 
 	params := url.Values{}
 	params.Set("grant_type", "client_credentials")
 	params.Set("client_id", d.ClientID)
-	params.Set("client_secret", d.ApiSecret)
+	params.Set("client_secret", d.SecretKey)
 
 	fullURL := authURL + "?" + params.Encode()
 	d.Logger.Debugf("Full URL with params: %s", fullURL)

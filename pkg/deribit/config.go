@@ -2,16 +2,18 @@ package deribit
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
+	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
-	RealBaseURL     = "wss://www.deribit.com/ws/api/v2/"
-	TestBaseURL     = "wss://test.deribit.com/ws/api/v2/"
-	RealRestBaseURL = "https://www.deribit.com/ws/api/v2/"
-	TestRestBaseURL = "https://test.deribit.com/ws/api/v2/"
+	BaseURL     = "https://www.deribit.com/api/v2"
+	TestBaseURL = "https://test.deribit.com/ws/api/v2"
+	WSURL       = "wss://www.deribit.com/ws/api/v2"
+	TestWSURL   = "wss://test.deribit.com/ws/api/v2"
 )
 
 const (
@@ -25,17 +27,29 @@ func getEnvWithDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
+type Credential struct {
+	ApiKey    string
+	SecretKey string
+}
+
+type WebsocketConfiguration struct {
+	Url           string
+	AutoReconnect bool
+	AutoStart     bool
+}
+
+type HttpConfiguration struct {
+	BaseUrl string
+}
+
 type Configuration struct {
-	Ctx           context.Context
-	WsAddr        string `json:"ws_addr"`
-	RestAddr      string `json:"rest_addr"`
-	ApiKey        string `json:"api_key"`
-	SecretKey     string `json:"secret_key"`
-	AutoReconnect bool   `json:"auto_reconnect"`
-	DebugMode     bool   `json:"debug_mode"`
-	WSBaseURL     string `json:"ws_base_url"`
-	RestBaseURL   string `json:"rest_base_url"`
-	Logger        *logrus.Logger
+	*WebsocketConfiguration
+	*HttpConfiguration
+	Ctx        context.Context
+	Client     *http.Client
+	Debug      bool
+	Credential Credential
+	Logger     *logrus.Logger
 }
 
 func GetConfig() *Configuration {
@@ -43,11 +57,11 @@ func GetConfig() *Configuration {
 	debugMode, _ := strconv.ParseBool(getEnvWithDefault("DERIBIT_DEBUG_MODE", "true"))
 	realMode, _ := strconv.ParseBool(getEnvWithDefault("DERIBIT_REAL_MODE", "false"))
 
-	wsBaseURL := TestBaseURL
-	restBaseURL := TestRestBaseURL
+	wsUrl := TestWSURL
+	baseUrl := TestBaseURL
 	if realMode {
-		wsBaseURL = RealBaseURL
-		restBaseURL = RealRestBaseURL
+		wsUrl = WSURL
+		baseUrl = BaseURL
 	}
 
 	// Configure logger
@@ -63,12 +77,19 @@ func GetConfig() *Configuration {
 	}
 
 	return &Configuration{
-		WsAddr:        wsBaseURL,
-		RestAddr:      restBaseURL,
-		ApiKey:        getEnvWithDefault("DERIBIT_API_KEY", ""),
-		SecretKey:     getEnvWithDefault("DERIBIT_API_SECRET", ""),
-		AutoReconnect: autoReconnect,
-		DebugMode:     debugMode,
-		Logger:        logger,
+		Credential: Credential{
+			ApiKey:    getEnvWithDefault("DERIBIT_API_KEY", ""),
+			SecretKey: getEnvWithDefault("DERIBIT_API_SECRET", ""),
+		},
+		WebsocketConfiguration: &WebsocketConfiguration{
+			Url:           wsUrl,
+			AutoReconnect: autoReconnect,
+		},
+		HttpConfiguration: &HttpConfiguration{
+			BaseUrl: baseUrl,
+		},
+		Client: http.DefaultClient,
+		Debug:  debugMode,
+		Logger: logger,
 	}
 }

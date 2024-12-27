@@ -6,21 +6,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
 	websocketmodels "github.com/BestNathan/deribit-api/clients/websocket/models"
 	"github.com/BestNathan/deribit-api/pkg/deribit"
 	"github.com/BestNathan/deribit-api/pkg/models"
+	"github.com/shopspring/decimal"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func newClient() *DeribitWSClient {
 	cfg := &deribit.Configuration{
-		WsAddr:        deribit.TestBaseURL,
-		ApiKey:        os.Getenv("DERIBIT_KEY"),
-		SecretKey:     os.Getenv("DERIBIT_SECRET"),
-		AutoReconnect: true,
-		DebugMode:     true,
+		Credential: deribit.Credential{
+			ApiKey:    os.Getenv("DERIBIT_KEY"),
+			SecretKey: os.Getenv("DERIBIT_SECRET"),
+		},
+		WebsocketConfiguration: &deribit.WebsocketConfiguration{
+			Url:           deribit.TestWSURL,
+			AutoReconnect: true,
+		},
+		Debug: true,
 	}
 	client := NewDeribitWsClient(cfg)
 	return client

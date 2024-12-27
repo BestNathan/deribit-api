@@ -26,15 +26,14 @@ var (
 
 type DeribitWSClient struct {
 	ctx           context.Context
-	addr          string
-	apiKey        string
-	secretKey     string
+	url           string
+	credential    deribit.Credential
 	autoReconnect bool
-
-	conn        *websocket.Conn
-	rpcConn     *jsonrpc2.Conn
-	heartCancel chan struct{}
-	isConnected atomic.Bool
+	client        *http.Client
+	conn          *websocket.Conn
+	rpcConn       *jsonrpc2.Conn
+	heartCancel   chan struct{}
+	isConnected   atomic.Bool
 
 	auth struct {
 		token   string
@@ -56,9 +55,9 @@ func NewDeribitWsClient(cfg *deribit.Configuration) *DeribitWSClient {
 	}
 	client := &DeribitWSClient{
 		ctx:              ctx,
-		addr:             cfg.WsAddr,
-		apiKey:           cfg.ApiKey,
-		secretKey:        cfg.SecretKey,
+		url:              cfg.WebsocketConfiguration.Url,
+		client:           cfg.Client,
+		credential:       cfg.Credential,
 		autoReconnect:    cfg.AutoReconnect,
 		logger:           cfg.Logger,
 		subscriptionsMap: make(map[string]struct{}),
@@ -165,8 +164,8 @@ func (c *DeribitWSClient) start() error {
 	c.setIsConnected(true)
 
 	// Authenticate if credentials are provided
-	if c.apiKey != "" && c.secretKey != "" {
-		if err := c.Auth(c.apiKey, c.secretKey); err != nil {
+	if c.credential.ApiKey != "" && c.credential.SecretKey != "" {
+		if err := c.Auth(c.credential.ApiKey, c.credential.SecretKey); err != nil {
 			return fmt.Errorf("auth: %w", err)
 		}
 	}
@@ -273,7 +272,9 @@ func (c *DeribitWSClient) reconnect() {
 func (c *DeribitWSClient) connect() (*websocket.Conn, *http.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	conn, resp, err := websocket.Dial(ctx, c.addr, &websocket.DialOptions{})
+	conn, resp, err := websocket.Dial(ctx, c.url, &websocket.DialOptions{
+		HTTPClient: c.client,
+	})
 	if err == nil {
 		conn.SetReadLimit(32768 * 64)
 	}
