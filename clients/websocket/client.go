@@ -21,28 +21,30 @@ import (
 )
 
 var (
-	ErrAuthenticationIsRequired = errors.New("authentication is required")
+	ErrUnAuthorized          = errors.New("websocket unauthorized")
+	ErrWebsocketNotConnected = errors.New("websocket not connected")
 )
 
 type DeribitWSClient struct {
-	ctx           context.Context
-	url           string
-	credential    deribit.Credential
-	autoReconnect bool
-	client        *http.Client
-	conn          *websocket.Conn
-	rpcConn       *jsonrpc2.Conn
-	heartCancel   chan struct{}
-	isConnected   atomic.Bool
+	ctx context.Context
+	cfg *deribit.WebsocketConfiguration
 
-	auth struct {
-		token   string
-		refresh string
-	}
+	client *http.Client
 
+	credential     deribit.Credential
+	authentication *websocketmodels.Authentication
+
+	// conn
+	conn            *websocket.Conn
+	rpcConn         *jsonrpc2.Conn
+	stopheartbeatch chan struct{}
+	connected       atomic.Bool
+
+	// subs
 	subscriptions    []string
 	subscriptionsMap map[string]struct{}
 
+	// pub/sub
 	emitter *emission.Emitter
 
 	logger *logrus.Logger
@@ -53,33 +55,43 @@ func NewDeribitWsClient(cfg *deribit.Configuration) *DeribitWSClient {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
 	client := &DeribitWSClient{
 		ctx:              ctx,
-		url:              cfg.WebsocketConfiguration.Url,
+		cfg:              cfg.WebsocketConfiguration,
 		client:           cfg.Client,
 		credential:       cfg.Credential,
-		autoReconnect:    cfg.AutoReconnect,
 		logger:           cfg.Logger,
 		subscriptionsMap: make(map[string]struct{}),
 		emitter:          emission.NewEmitter(),
 	}
-	err := client.start()
-	if err != nil {
-		client.logger.WithContext(ctx).Warnln("start fail", err)
 
-		panic(err)
+	if cfg.AutoStart {
+		if err := client.start(ctx); err != nil {
+			client.logger.WithContext(ctx).Warnln("websocket start fail", err)
+			panic(err)
+		}
 	}
+
 	return client
+}
+
+func (c *DeribitWSClient) Start(ctx context.Context) error {
+	if c.IsConnected() {
+		return nil
+	}
+
+	return c.start(ctx)
 }
 
 // setIsConnected sets state for isConnoected
 func (c *DeribitWSClient) setIsConnected(state bool) {
-	c.isConnected.Store(state)
+	c.connected.Store(state)
 }
 
 // IsConnected returns the WebSocket connection state
 func (c *DeribitWSClient) IsConnected() bool {
-	return c.isConnected.Load()
+	return c.connected.Load()
 }
 
 func (c *DeribitWSClient) Subscribe(channels []string) {
@@ -125,22 +137,22 @@ func (c *DeribitWSClient) subscribe() {
 	}
 }
 
-func (c *DeribitWSClient) start() error {
+func (c *DeribitWSClient) start(ctx context.Context) error {
+	ctx = context.WithoutCancel(ctx)
+
 	c.setIsConnected(false)
 	c.subscriptionsMap = make(map[string]struct{})
 	c.conn = nil
 	c.rpcConn = nil
-	c.heartCancel = make(chan struct{})
 
 	for i := 0; i < deribit.MaxTryTimes; i++ {
-		conn, _, err := c.connect()
+		conn, _, err := c.dial(ctx)
 		if err != nil {
-			tm := (i + 1) * 5
-			dur := time.Duration(tm) * time.Second
+			dur := time.Duration((i+1)*5) * time.Second
 
 			c.logger.
-				WithContext(c.ctx).
-				Warnf("websocket connect fail(%d), and will retry in %s\n", i, dur)
+				WithContext(ctx).
+				Warnf("websocket dial fail(%d), and will retry in %s\n", i, dur)
 
 			time.Sleep(dur)
 
@@ -152,14 +164,14 @@ func (c *DeribitWSClient) start() error {
 	}
 
 	if c.conn == nil {
-		return errors.New("websocket connect fail")
+		return errors.New("websocket dial fail")
 	}
 
 	// Create a new object stream with the websocket connection
 	stream := websocketmodels.NewObjectStream(c.conn)
 
 	// Initialize the JSON-RPC connection with the stream
-	c.rpcConn = jsonrpc2.NewConn(c.ctx, stream, c)
+	c.rpcConn = jsonrpc2.NewConn(ctx, stream, c)
 
 	c.setIsConnected(true)
 
@@ -174,45 +186,59 @@ func (c *DeribitWSClient) start() error {
 	c.subscribe()
 
 	// Set heartbeat
-	_, err := c.SetHeartbeat(&models.SetHeartbeatParams{Interval: 30})
+	_, err := c.SetHeartbeat(&models.SetHeartbeatParams{Interval: c.cfg.HeartBeatInterval})
 	if err != nil {
 		return fmt.Errorf("set heartbeat: %w", err)
 	}
 
 	// Start reconnection handler if enabled
-	if c.autoReconnect {
-		go c.reconnect()
+	if c.cfg.AutoReconnect {
+		go c.reconnect(ctx)
 	}
 
 	// Start heartbeat routine
-	go c.heartbeat()
+	go c.startheartbeat(ctx)
 
 	return nil
 }
 
 // Call issues JSONRPC v2 calls
 func (c *DeribitWSClient) Call(method string, params interface{}, result interface{}) (err error) {
+	timeout := c.cfg.CallTimeout
+	if timeout == 0 {
+		timeout = time.Minute
+	}
+
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(c.ctx), timeout)
+	defer cancel()
+
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%v", r)
+			err = fmt.Errorf("recover: %v", r)
 		}
 	}()
 
 	if !c.IsConnected() {
-		return errors.New("not connected")
+		return ErrWebsocketNotConnected
 	}
+
 	if params == nil {
 		params = websocketmodels.EmptyParams
 	}
 
 	if token, ok := params.(websocketmodels.PrivateParams); ok {
-		if c.auth.token == "" {
-			return ErrAuthenticationIsRequired
+		if c.authentication == nil || c.authentication.AccessToken == "" {
+			return ErrUnAuthorized
 		}
-		token.SetToken(c.auth.token)
+
+		token.SetToken(c.authentication.AccessToken)
 	}
 
-	return c.rpcConn.Call(c.ctx, method, params, result)
+	if err := c.rpcConn.Call(ctx, method, params, result); err != nil {
+		return fmt.Errorf("jsonrpc call: %w", err)
+	} else {
+		return nil
+	}
 }
 
 // Handle implements jsonrpc2.Handler
@@ -233,50 +259,68 @@ func (c *DeribitWSClient) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *
 	}
 }
 
-func (c *DeribitWSClient) heartbeat() {
-	t := time.NewTicker(3 * time.Second)
+func (c *DeribitWSClient) startheartbeat(ctx context.Context) {
+	c.stopheartbeatch = make(chan struct{})
+
+	t := time.NewTicker(c.cfg.TestDuration)
 	for {
 		select {
 		case <-t.C:
 			if _, err := c.Test(); err != nil {
-				c.logger.WithContext(c.ctx).Warnln("test fail", err)
+				c.logger.WithContext(ctx).Warnln("heartbeat test fail", err)
 				return
 			}
-		case <-c.heartCancel:
+		case <-c.stopheartbeatch:
+			c.logger.WithContext(ctx).Debugln("heartbeat stop")
+			return
+		case <-ctx.Done():
+			c.logger.WithContext(ctx).Debugln("heartbeat ctx done")
 			return
 		}
 	}
 }
 
-func (c *DeribitWSClient) reconnect() {
-	notify := c.rpcConn.DisconnectNotify()
-	<-notify
-	c.setIsConnected(false)
-
-	c.logger.WithContext(c.ctx).Debugln("reconnecting...")
-
-	close(c.heartCancel)
-
-	time.Sleep(1 * time.Second)
-
-	err := c.start()
-	if err != nil {
-		c.logger.WithContext(c.ctx).Warnln("reconnect fail", err)
-
-		return
-	} else {
-		c.logger.WithContext(c.ctx).Debugln("reconnect success")
+func (c *DeribitWSClient) stopheartbeat() {
+	if c.stopheartbeatch != nil {
+		close(c.stopheartbeatch)
 	}
 }
 
-func (c *DeribitWSClient) connect() (*websocket.Conn, *http.Response, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	conn, resp, err := websocket.Dial(ctx, c.url, &websocket.DialOptions{
+func (c *DeribitWSClient) reconnect(ctx context.Context) {
+	notify := c.rpcConn.DisconnectNotify()
+	<-notify
+
+	c.stopheartbeat()
+
+	c.logger.WithContext(ctx).Debugln("jsonrpc conn disconnected, reconnecting...")
+
+	if c.cfg.ReconnectDuration > 0 {
+		time.Sleep(c.cfg.ReconnectDuration)
+	}
+
+	err := c.start(ctx)
+	if err != nil {
+		c.logger.WithContext(ctx).Warnln("reconnect fail", err)
+	} else {
+		c.logger.WithContext(ctx).Debugln("reconnect success")
+	}
+}
+
+func (c *DeribitWSClient) dial(ctx context.Context) (*websocket.Conn, *http.Response, error) {
+	if c.client != nil && c.client.Timeout == 0 {
+		c.client.Timeout = c.cfg.DialWebsocketTimeout
+	}
+
+	conn, resp, err := websocket.Dial(ctx, c.cfg.Url, &websocket.DialOptions{
 		HTTPClient: c.client,
 	})
-	if err == nil {
-		conn.SetReadLimit(32768 * 64)
+	if err != nil {
+		return nil, nil, fmt.Errorf("websocket dial: %w", err)
 	}
-	return conn, resp, err
+
+	if c.cfg.ReadLimit != 0 {
+		conn.SetReadLimit(c.cfg.ReadLimit)
+	}
+
+	return conn, resp, nil
 }

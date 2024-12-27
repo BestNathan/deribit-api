@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -33,9 +34,15 @@ type Credential struct {
 }
 
 type WebsocketConfiguration struct {
-	Url           string
-	AutoReconnect bool
-	AutoStart     bool
+	Url                  string
+	AutoReconnect        bool
+	ReconnectDuration    time.Duration
+	AutoStart            bool
+	ReadLimit            int64
+	DialWebsocketTimeout time.Duration
+	CallTimeout          time.Duration
+	TestDuration         time.Duration
+	HeartBeatInterval    float64
 }
 
 type HttpConfiguration struct {
@@ -82,8 +89,14 @@ func GetConfig() *Configuration {
 			SecretKey: getEnvWithDefault("DERIBIT_API_SECRET", ""),
 		},
 		WebsocketConfiguration: &WebsocketConfiguration{
-			Url:           wsUrl,
-			AutoReconnect: autoReconnect,
+			Url:                  wsUrl,
+			AutoReconnect:        autoReconnect,
+			AutoStart:            true,
+			TestDuration:         time.Second * 3,
+			ReconnectDuration:    time.Second,
+			CallTimeout:          time.Minute,
+			HeartBeatInterval:    30,
+			DialWebsocketTimeout: time.Second * 10,
 		},
 		HttpConfiguration: &HttpConfiguration{
 			BaseUrl: baseUrl,

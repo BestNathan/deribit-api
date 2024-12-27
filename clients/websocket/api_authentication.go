@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	websocketmodels "github.com/BestNathan/deribit-api/clients/websocket/models"
 	"github.com/BestNathan/deribit-api/pkg/models"
 )
 
@@ -15,8 +16,12 @@ func (c *DeribitWSClient) Auth(apiKey string, secretKey string) (err error) {
 	if err != nil {
 		return
 	}
-	c.auth.token = result.AccessToken
-	c.auth.refresh = result.RefreshToken
+
+	c.authentication = &websocketmodels.Authentication{
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
+	}
+
 	return
 }
 

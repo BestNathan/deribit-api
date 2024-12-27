@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 func main() {
 	cfg := deribit.GetConfig()
 
+	cfg.AutoStart = false
 	cfg.Client = &http.Client{
 		Transport: &http.Transport{
 			Proxy: func(r *http.Request) (*url.URL, error) {
@@ -22,13 +24,16 @@ func main() {
 
 	client := websocket.NewDeribitWsClient(cfg)
 
-	_, gErr := client.GetTime()
-	if gErr != nil {
-		return
+	if err := client.Start(context.Background()); err != nil {
+		log.Fatal("start fail ", err)
 	}
-	_, tErr := client.Test()
-	if tErr != nil {
-		return
+
+	if _, err := client.GetTime(); err != nil {
+		log.Fatal("GetTime fail ", err)
+	}
+
+	if _, err := client.Test(); err != nil {
+		log.Fatal("Test fail ", err)
 	}
 
 	btcdvolch := websocket.ChannelDeribitVolatilityIndex(websocket.DERIBIT_VOLATILITY_INDEX_NAME_BTC)
